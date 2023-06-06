@@ -1,0 +1,182 @@
+#pragma once
+#include <iostream>
+#include <vector>
+
+using namespace std;
+
+enum class DistanceCalculationMethod
+{
+	Manhatan,
+	Diagonal,
+	Euclidean
+};
+
+enum class DisplayMethod
+{
+	Step,
+	Continues
+};
+
+class Path
+{
+public:
+	Path()
+	{
+
+	}
+
+	Path(string name)
+	{
+		this->name = name;
+	}
+
+	string name = " ";
+	long int needed_steps = 0;
+	vector<long int> steps;
+};
+
+
+
+template<class LabType> 
+class Labirynth
+{
+
+
+	class node
+	{
+	public:
+		node(long int id)
+		{
+			this->id = id;
+		}
+
+		node(long int id, long int distance)
+		{
+			this->id = id;
+		}
+
+		long int id = -1;
+		float distance = -1;
+		long int heuristic = 0;
+		bool visited = false;
+		node* parent = this;
+	};
+
+	class Vector_2D
+	{
+	public:
+		Vector_2D()
+		{
+			x = 0;
+			y = 0;
+		}
+		Vector_2D(long int x, long int y)
+		{
+			this->x = x;
+			this->y = y;
+		}
+		long int x;
+		long int y;
+	};
+
+public:
+	//Default = continues;
+	static DisplayMethod disp_method;
+
+	Labirynth();
+	Labirynth(long int size_x, long int size_y);
+	Labirynth(long int size_x, long int size_y, LabType** map);
+	~Labirynth();
+
+	static LabType** construct_new_map(long int size_x,long int size_y);
+	float calculate_distance(long int,long int, DistanceCalculationMethod);
+	long int get_start();
+	long int get_meta();
+	void draw_epty_map();
+	void write_adjList();
+	void show_path(Path path);
+
+	vector<vector<long int>> AdjencentyList;
+	vector<node> nodes;
+
+	long int nodes_amount;
+
+	friend void operator>>(long int node_id, Labirynth& map)
+	{
+		long int x, y;
+		map.unMap(node_id, x, y);
+		map.current_pos.x = x;
+		map.current_pos.y = y;
+	}
+
+private:
+	long int size_x;
+	long int size_y;
+	Vector_2D current_pos;
+	LabType** map;
+
+	long int calculate_cross_exits_y(long int j,long int i);
+	long int calculate_cross_exits_x(long int j,long int i);
+	long int mapping(long int col,long int row);
+	void unMap(long int node_id,long int& col,long int& row);
+	bool skip_point(vector<pair<long int,long int>> skipped_points, long int i,long int j);
+	long int calculate_nodes_amounts();
+	void map_to_list();
+
+	friend ostream& operator<<(ostream& os,const Labirynth& Lab)
+	{
+		cin.clear();
+		//os << setw(static_cast(Lab.size_x));
+		for (long int i = 0; i != Lab.size_x; i++)
+		{
+			for (long int j = 0; j != Lab.size_y; j++)
+			{
+				if (Lab.current_pos.x == i && Lab.current_pos.y == j)
+				{
+					os << "X";
+					continue;
+				}
+				if (Lab.map[i][j] == '0')
+				{
+					os << ' ';
+					continue;
+				}
+				os << Lab.map[i][j];
+			}
+			cout << endl;
+		}
+
+		if (Labirynth<LabType** >::disp_method == DisplayMethod::Step)
+			cin.get();
+
+		cout << endl;
+		return os;
+	}
+
+	friend void operator>>(LabType** newMap, Labirynth& map)
+	{
+		for (long int i = 0; i != map.size_x; i++)
+		{
+			for (long int j = 0; j != map.size_y; j++)
+			{
+				//cout << newMap[i][j];
+				map.map[i][j] = (newMap[i][j]);
+			}
+		}
+
+		map.AdjencentyList.clear();
+		map.nodes.clear();
+
+		map.nodes_amount = map.calculate_nodes_amounts();
+		for (long int i = 0; i != map.nodes_amount + 1; i++)
+		{
+			map.AdjencentyList.push_back(vector<long int>());
+			map.nodes.push_back(node(i));
+		}
+			
+
+		map.map_to_list();
+	}
+};
+
+DisplayMethod Labirynth<char**>::disp_method = DisplayMethod::Continues;
