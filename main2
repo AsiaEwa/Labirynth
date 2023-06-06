@@ -1,0 +1,625 @@
+#include <iostream>
+#include <queue>
+#include <vector>
+#include "Labirynth.h"
+#include "Labirynth.cpp"
+
+using namespace std;
+
+char** default_maps(long int&,long int&);
+
+int DFS(long int start,long int end, Labirynth<char> map, Path& path);
+int BFS(long int start,long  int end, Labirynth<char> map, Path& path);
+int AStar(long int start,long int end, Labirynth<char> map, Path& path);
+
+int (*Algs[3])(long int start,long int end, Labirynth<char> map, Path& path) {DFS, BFS, AStar};
+
+void result(long int alg, Labirynth<char> Lab, Path path);
+void settings();
+
+void SelectAlg(Labirynth<char> map)
+{
+	Path path;
+
+	system("cls");
+
+	cout << endl << "Select algorythm: ";
+	cout << endl << "[1] DFS";
+	cout << endl << "[2] BFS";
+	cout << endl << "[3] A*";
+	cout << endl << endl;
+
+	int choose;
+	cin >> choose;
+
+	Algs[choose-1](map.get_start(), map.get_meta(), map, path);
+	result(choose, map, path);
+}
+
+int main()
+{
+	while (1)
+	{
+		system("cls");
+
+		cout << "[1] create new labirynth" << endl;
+		cout << "[2] select one of defaults labirynths" << endl;
+		cout << "[3] settings" << endl;
+		cout << "[4] exit program" << endl;
+
+		int choose;
+		cin >> choose;
+
+		switch (choose)
+		{
+		case 1: //new lab
+		{		
+			cout << endl << "Labirynth width: ";
+			long int x, y;
+			cin >> x;
+			cout << "Labirynt height: ";
+			cin >> y;
+			Labirynth<char> map(x,y);
+			char** temp = map.construct_new_map(x, y);
+			temp >> map;
+			cout << map;
+
+			SelectAlg(map);
+			break;
+		}
+		case 2: //default lab
+		{
+			long int x, y;
+			char** newMap = default_maps(x, y);
+			Labirynth<char> map(x, y, newMap);
+			SelectAlg(map);
+			break;
+		}
+		case 3:
+		{
+			settings();
+			break;
+		}
+		case 4: // exit
+		{
+			return 0;
+		}
+		default:
+			break;
+		}
+
+
+	}
+	
+}
+
+int DFS(long int start,long int end, Labirynth<char> map, Path& path)
+{
+	map.nodes[start].visited = true;
+	start >> map;
+	cout << map;
+
+	int next = -1;
+	bool finded = false;
+
+	for (int i = 0; i != map.AdjencentyList[start].size(); i++)
+	{
+		if (finded == true) return finded;
+		next = map.AdjencentyList[start][i];
+
+		if (start == end)
+		{
+			start >> map;
+			cout << map;
+			//path.steps.push_back(next);
+			path.steps.push_back(start);
+			return true;
+		}
+
+		if (map.nodes[next].visited == false)
+		{
+			map.nodes[next].visited = true;
+			path.needed_steps++;
+			finded = DFS(next, end, map, path);
+			start >> map;
+			cout << map;
+
+			if (finded == true)
+			{
+				path.steps.push_back(start);
+			}
+
+		}
+	}
+	return finded;
+}
+
+int BFS(long int start,long int end, Labirynth<char> map, Path& path)
+{
+	queue<int> Q;
+	Q.push(map.nodes[start].id);
+	int next = Q.front();
+	map.nodes[next].visited = true;
+
+	vector<int> previous;
+	for (int i = 0; i != map.nodes_amount + 1; i++)
+		previous.push_back(NULL);
+
+	for (int j = 0; j != map.AdjencentyList.size() - 1; j++)
+	{
+		//Display schearching step
+		next >> map;
+		cout << map;
+
+		if (next == end) break;
+
+		Q.pop();
+		for (int i = 0 ; i != map.AdjencentyList[next].size(); i++)
+		{
+			
+			int temp = map.AdjencentyList[next][i];
+			if (map.nodes[temp].visited == false)
+			{
+				path.needed_steps++;
+				map.nodes[map.AdjencentyList[next][i]].visited = true;
+				previous[temp] = next;
+				Q.push(map.AdjencentyList[next][i]);
+			}
+		}
+
+		if (next == end) break;
+		if (Q.empty() == true) return -1;
+
+		next = Q.front();
+		next >> map;
+	}
+
+	while (previous[end]!=NULL)
+	{
+		end >> map;
+		cout << map;
+		path.steps.push_back(end);
+		end = previous[end];
+	}
+	path.steps.push_back(start);
+	start >> map;
+	cout << map;
+
+	return 0;
+}
+
+//helper function for A* algorith calcualtion
+int shortest_h(long int current,long int end, Labirynth<char>& map)
+{
+	long int min = 200;
+	long int node_id = -1;
+	//calculate heuristics for all children
+	for (long int child : map.AdjencentyList[current])
+	{
+		//auto current_child = map.AdjencentyList[current][child];
+		if (map.nodes[child].visited == true) continue;
+		map.nodes[child].heuristic = map.calculate_distance(child, end, DistanceCalculationMethod::Manhatan);
+		map.nodes[child].distance = map.nodes[current].distance + map.calculate_distance(current, child, DistanceCalculationMethod::Manhatan);
+		auto temp = map.nodes[child].heuristic + map.nodes[child].distance;
+
+		min = map.nodes[child].heuristic + map.nodes[child].distance;
+		node_id = map.nodes[child].id;
+	}
+	
+	//find lowest heuristic in children
+	for (long int id : map.AdjencentyList[current])
+	{
+		if (map.nodes[id].visited == true) continue;
+		if (map.nodes[id].heuristic + map.nodes[current].distance <= min)
+		{
+			min = map.nodes[id].heuristic  + map.nodes[id].distance;
+			node_id = map.nodes[id].id;
+		}
+			
+	}
+
+	for (auto node : map.nodes)
+	{
+		if (node.visited == false) continue;
+
+		for (long int child : map.AdjencentyList[node.id])
+		{
+			if (map.nodes[child].visited == true) continue;
+			if ((map.nodes[child].heuristic + map.nodes[child].distance) <= min)
+			{
+				min = map.nodes[child].heuristic + map.nodes[child].distance;
+				node_id = map.nodes[child].id;
+			}
+		}
+	}
+
+	return node_id;
+}
+
+int AStar(long int start, long int end, Labirynth<char> map, Path& path)
+{
+	queue<long int> Q;
+	vector<long int> previous;
+
+	start >> map;
+	cout << map;
+
+	//initialization
+	long int current = start;
+	map.nodes[current].visited = true;
+	map.nodes[current].distance = 0;
+	map.nodes[current].heuristic = map.calculate_distance(current, end, DistanceCalculationMethod::Manhatan);
+	Q.push(map.nodes[current].id);
+	
+
+	for (auto node : map.AdjencentyList)
+	{
+		current = shortest_h(current, end, map);
+		previous.push_back(current);
+		path.needed_steps++;
+		map.nodes[current].visited = true;
+		current >> map;
+		cout << map;
+		if (current == end) break;
+	}
+
+	long int min = 200;
+	current= end;
+	int i = 0;
+
+
+	path.steps.push_back(current);
+	do
+	{
+			if (map.nodes[map.AdjencentyList[current][i]].distance <= min)
+			{
+				min = map.nodes[map.AdjencentyList[current][i]].distance;
+				current = map.nodes[map.AdjencentyList[current][i]].id;
+				path.steps.push_back(current);
+
+				current >> map;
+				cout << map;
+
+				i = 0;
+			}
+			else
+				i++;
+
+	} while (current != start);
+
+	return -1;
+}
+
+/*
+int AStar(long int start,long int end, Labirynth<char> map, Path& path)
+{
+	queue<long int> Q;
+	
+	Q.push(map.nodes[start].id);
+	long int next = Q.front();
+	map.nodes[next].visited = true;
+	map.nodes[next].distance = 0;
+	map.nodes[next].parent = &map.nodes[next];
+	map.nodes[next].parent->distance;
+	long int* parents = new long int[map.nodes_amount];
+
+	vector<long int> previous;
+	for (long int i = 0; i != map.nodes_amount + 1; i++)
+		previous.push_back(NULL);
+
+	for (long int j = 0; j != map.AdjencentyList.size(); j++)
+	{
+		next >> map;
+		cout << map;
+
+		if (next == end) break;
+
+		Q.pop();
+		for (long int i = 0; i != map.AdjencentyList[next].size(); i++)
+		{
+			long int temp = map.AdjencentyList[next][i];
+			if (map.nodes[temp].visited == false)
+			{
+				path.needed_steps++;
+				map.nodes[map.AdjencentyList[next][i]].visited = true;
+				previous[temp] = next;
+				Q.push(map.AdjencentyList[next][i]);
+			}
+		}
+		
+		if (next == end) break;
+
+		if (Q.empty() == true) return -1;
+
+		//Heuristisc priority
+		vector<pair<long int, float>> heuristics;
+		while (!Q.empty())
+		{
+			//int todelete = map.nodes[Q.front()].parent->distance;
+			float H = map.calculate_distance(Q.front(), end, DistanceCalculationMethod::Manhatan)
+				+ map.calculate_distance(next, Q.front(), DistanceCalculationMethod::Manhatan)
+				;// +todelete;
+
+			heuristics.push_back(pair<long int, float>(Q.front(), H));
+			Q.pop();
+		}
+
+		//Check previous nosed
+		for (auto node : map.nodes)
+		{
+			if(node.visited == true)
+			heuristics.push_back(pair<long int, float>(node.id, node.distance));
+		}
+
+		//Sort Queue
+		pair<long int, float> min = heuristics[0];
+		bool sorted = false;
+		do
+		{
+			sorted = false;
+			for (long int i = 0; i != heuristics.size(); i++)
+			{
+				if (heuristics[i].second < min.second)
+				{
+					min = heuristics[i];
+					heuristics[i] = heuristics[heuristics.size() - 1];
+					heuristics[heuristics.size() - 1] = min;
+
+					sorted = true;
+				}
+			}
+		} while (sorted);
+
+		//Refill Queue
+		for (long int i = heuristics.size() - 1; i != -1; i--)
+			Q.push(heuristics[i].first);
+		heuristics.clear();
+
+		long int prev_node = next;
+		parents[next] = prev_node;
+		
+		
+		next = Q.front();
+		map.nodes[next].parent = &map.nodes[prev_node];
+
+		long int todelete2 = map.calculate_distance(prev_node, next, DistanceCalculationMethod::Manhatan);
+		long int todelete = map.nodes[prev_node].distance + todelete2;
+		map.nodes[next].distance = todelete;
+
+	}
+
+	while (previous[end] != NULL)
+	{
+		end >> map;
+		cout << map;
+		path.steps.push_back(end);
+		end = previous[end];
+	}
+	path.steps.push_back(start);
+	start >> map;
+	cout << map;
+
+	return -1;
+}
+*/
+
+void result(long int alg, Labirynth<char> Lab, Path path)
+{
+	switch (alg)
+	{
+	case 1:
+		cout << endl << "DFS: " << endl;
+		break;
+	case 2:
+		cout << endl << "BFS: " << endl;
+		break;
+	case 3:
+		cout << endl << "AStar: " << endl;
+		break;
+	default:
+		break;
+	}
+
+	cout << endl << "Steps needed to find path: " << path.needed_steps;
+	cout << endl << "Finded path size: " << path.steps.size() << endl << endl;
+
+	for (int i = 0; i!=path.steps.size();i++)
+	{
+		cout << "V->" << path.steps[path.steps.size()-i-1] << " ";
+	}cout << endl;
+	
+	Lab.show_path(path);
+	cin.get();
+	int a; cin >> a;
+}
+
+void settings()
+{
+	while (1)
+	{
+		system("cls");
+		cout << endl;
+		cout << "Settings: " << endl;
+
+		cout << "[1] Display Method -> Continues" << endl;
+		cout << "[2] Display Method -> Step" << endl;
+		cout << "[3] Back" << endl;
+
+		int s;
+		cin >> s;
+
+		if (s == 1)
+			Labirynth<char**>::disp_method = DisplayMethod::Continues;
+		if (s == 2)
+			Labirynth<char**>::disp_method = DisplayMethod::Step;
+		if (s != 1 && s != 2)
+			break;
+	}
+
+}
+
+char** default_maps(long int& x,long int& y)
+{
+	char map1[3][3] = { 'S','1','1',
+						'0','0','0',
+						'1','1','M' };
+
+	char map2[5][5] = {'1','0','0','0','0',
+					   'S','0','0','1','1',
+					   '1','0','1','1','M',
+					   '0','0','0','1','0',
+					   '0','1','0','0','0', };
+
+	char map3[12][12] = {'S','1','1','0','0','0','0','0','0','1','1','1',
+						 '0','1','1','0','1','1','1','1','0','1','1','1',
+						 '0','0','0','0','0','1','M','1','0','0','0','0',
+						 '1','1','0','1','0','1','0','0','0','1','0','1',
+					     '0','0','0','1','0','1','1','1','0','1','0','1',
+						 '1','0','1','1','0','0','0','1','0','0','0','0',
+						 '1','0','1','1','1','1','0','1','0','1','1','0',
+						 '1','0','0','0','0','0','0','1','0','1','1','0',
+						 '1','0','1','1','1','1','0','1','0','1','1','0',
+						 '1','0','1','1','1','1','0','0','0','0','0','0',
+						 '1','0','1','1','1','1','0','1','1','1','1','1',
+						 '1','0','0','0','0','0','0','1','1','1','1','1',
+	};
+
+	char map4[24][24] = { '1','1','1','S','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','0','0','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','0','0','0','0','1','1','0','0','0','0','0','0','1','1','1',
+						  '1','1','1','0','0','0','0','0','0','1','1','1','0','1','1','0','0','0','0','0','0','M','1','1',
+						  
+					
+
+	};
+
+	system("cls");
+
+	cout << "Select one of labityths: " << endl << endl;
+	cout << "[1] map1: " << endl;
+
+	for (long int i = 0; i != 3; i++)
+	{
+		for (long int j = 0; j != 3; j++)
+			{
+				cout << map1[i][j];
+			}
+		cout << endl;
+	}
+
+	cout << endl << "[2] map2: " << endl;
+	for (long int i = 0; i != 5; i++)
+	{
+		for (long int j = 0; j != 5; j++)
+		{
+			cout << map2[i][j];
+		}
+		cout << endl;
+	}
+
+	cout << endl << "[3] map3: " << endl;
+	for (long int i = 0; i != 12; i++)
+	{
+		for (long int j = 0; j != 12; j++)
+		{
+			cout << map3[i][j];
+		}
+		cout << endl;
+	}
+
+	cout << endl << "[4] map4: " << endl;
+	for (long int i = 0; i != 24; i++)
+	{
+		for (long int j = 0; j != 24; j++)
+		{
+			cout << map4[i][j];
+		}
+		cout << endl;
+	}
+
+	long int choose;
+	cout << endl  << "Select default lab: ";
+	cin >> choose;
+
+	switch (choose)
+	{
+	case 1:
+	{
+		char** map = new char* [3];
+		for (long int i = 0; i != 3; i++)
+			map[i] = new char[3];
+
+		for (long int i = 0; i != 3; i++)
+			for (long int j = 0; j != 3; j++)
+				map[i][j] = map1[i][j];
+		x = 3;
+		y = 3;
+		return map;
+	}
+		break;
+	case 2:
+	{
+		char** map = new char* [5];
+		for (int i = 0; i != 5; i++)
+			map[i] = new char[5];
+
+		for (int i = 0; i != 5; i++)
+			for (int j = 0; j != 5; j++)
+				map[i][j] = map2[i][j];
+		x = 5;
+		y = 5;
+		return map;
+	}
+	case 3:
+	{
+		char** map = new char* [12];
+		for (int i = 0; i != 12; i++)
+			map[i] = new char[12];
+
+		for (int i = 0; i != 12; i++)
+			for (int j = 0; j != 12; j++)
+				map[i][j] = map3[i][j];
+		x = 12;
+		y = 12;
+		return map;
+	}
+	case 4:
+	{
+		char** map = new char* [24];
+		for (long int i = 0; i != 24; i++)
+			map[i] = new char[24];
+
+		for (long int i = 0; i != 24; i++)
+			for (long int j = 0; j != 24; j++)
+				map[i][j] = map4[i][j];
+		x = 24;
+		y = 24;
+		return map;
+	}
+	default:
+
+		break;
+	}
+
+	return nullptr;
+}
