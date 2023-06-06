@@ -1,0 +1,57 @@
+#pragma once
+
+
+#include "Labirynth.h"
+#include <iostream>
+#include <vector>
+
+using namespace std;
+typedef int list_type;
+
+enum class DistanceCalculationMethod
+{
+	Manhatan,
+	Diagonal,
+	Euclidean
+};
+
+
+class Labirynth
+{
+
+public:
+	Labirynth(int size_x, int size_y);
+	Labirynth(int size_x, int size_y, char **map);
+
+public:
+	void draw_raw_map();
+	void draw(int node_id);
+	void draw_finded_path(vector<int> path);
+	void MapToList();
+	void MapToListWithWeights();
+	void Display_list();
+
+	int get_start();
+	int get_meta();
+	float calculate_distance(int node1_id, int node2_id, DistanceCalculationMethod DMethod);
+
+	int size_x;
+	int size_y;
+	int nodes_amount = 0;
+
+	//Pointer to pointer (2DArray) - Labirynth
+	char** map;
+	//Adjencenty List
+	vector<vector<list_type>> List;
+
+
+private:
+
+	void eraseMap();
+	int calculate_nodes_amounts();
+	int mapping(int col, int row);
+	void unMap(int node_id, int& col, int& row);
+	int calculate_cross_exits_y(int, int);
+	int calculate_cross_exits_x(int j, int i);
+};
+
