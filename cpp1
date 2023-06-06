@@ -1,0 +1,571 @@
+#include <iostream>
+#include <vector>
+#include <conio.h>
+#include "Labirynth.h"
+
+#define MAX_SIZE 512
+
+#define WALL '1'
+#define ROAD '0'
+#define START 'S'
+#define META 'M'
+
+using namespace std;
+typedef int list_type;
+
+Labirynth::Labirynth(int size_x, int size_y)
+{
+	this->size_x = size_x;
+	this->size_y = size_y;
+
+	map = new char* [size_x];
+	if (!map) cout << "didnt allocated";
+	
+	for (int i = 0; i != size_x; i++)
+	{
+			map[i] = new char[size_y];
+	}
+	this->eraseMap();
+
+	nodes_amount = calculate_nodes_amounts();
+	for (int i = 0; i != nodes_amount +1; i++)
+		List.push_back(vector<list_type>());
+
+}
+
+Labirynth::Labirynth(int size_x, int size_y, char **newMap)
+{
+	this->size_x = size_x;
+	this->size_y = size_y;
+
+	this->map = newMap;
+
+	nodes_amount = calculate_nodes_amounts();
+	for (int i = 0; i != nodes_amount +1; i++)
+		List.push_back(vector<list_type>());
+}
+
+//Draw map that user inserted
+void Labirynth::draw_raw_map()
+{
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			cout << this->map[i][j];
+		}
+		cout << endl;	
+	}
+}
+
+//Draw labiryth 
+void Labirynth::draw(int node_id)
+{
+	//system("cls");
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			if (mapping(i, j) == node_id)
+			{
+				if (map[i][j] != WALL)
+				{
+					cout << 'X';
+					continue;
+				}
+
+			}
+			if (map[i][j] == ROAD)
+				cout << ROAD;
+
+			if (map[i][j] == WALL)
+				cout << " ";
+				//cout << (char)254;
+
+			if (map[i][j] == START)
+				cout << START;
+
+			if (map[i][j] == META)
+				cout << META;
+		}
+
+		cout << endl;
+	}
+	cout << endl;
+
+	//cin.get();
+}
+
+void Labirynth::draw_finded_path(vector<int> path)
+{
+	//system("cls");
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			bool temp = false;
+			for (int k = 0; k != path.size(); k++)
+			{
+				int x = -1, y = -1;
+				unMap(path[k], x, y);
+				if (x == i && y == j)
+				{
+					cout << '@';
+					temp = true;
+				}
+			}
+			if (temp) continue;
+
+			if (map[i][j] == ROAD)
+				cout << ROAD;
+
+			if (map[i][j] == WALL)
+				cout << " ";
+			//cout << (char)254;
+
+			if (map[i][j] == START)
+				cout << START;
+
+			if (map[i][j] == META)
+				cout << META;
+		}
+
+		cout << endl;
+	}
+	cout << endl;
+
+	//cin.get();
+}
+
+//Map array index to array slot number
+int Labirynth::mapping(int col, int row)
+{
+	int val = 1;
+
+	//cout << endl <<"Mapping: " << endl;
+	for (int i = 0; i <= size_x; i++)
+	{
+		for (int j = 0; j <= size_y; j++)
+		{
+			if (i == col && j == row)
+			{
+				//cout << "V->" << val << endl;
+				return val;
+			}
+			if (map[i][j] == ROAD || map[i][j] == START || map[i][j] == META)
+			{
+				val++;
+			}
+		}
+	}
+
+	//cout << endl;
+	//cout << "V->" << val;
+	return val;
+}
+
+//Find row and column of given node
+void Labirynth::unMap(int node_id, int &col, int &row)
+{
+	int val = 0;
+	//cout << endl <<"Mapping: " << endl;
+	for (int i = 0; i <= size_x-1; i++)
+	{
+		for (int j = 0; j <= size_y-1; j++)
+		{
+			if (map[i][j] == ROAD || map[i][j] == START || map[i][j] == META)
+			{
+				val++;
+			}
+
+			if (val == node_id)
+			{
+				col = i;
+				row = j;
+				return;
+			}
+
+
+		}
+	}
+}
+
+//Convert connection list to neighbourhood list
+void Labirynth::MapToList()
+{
+
+	//Check vertical
+	for (int j = 0; j != size_y; j++)
+	{
+		for (int i = 0; i != size_x-1; i++)
+		{
+			if (this->map[i][j] == WALL) continue;
+
+			//Start:
+			if (map[i+1][j] == ROAD || map[i+1][j] == START || map[i+1][j] == META)
+			{
+				//add connection
+				int temp1 = mapping(i, j);
+				int temp2 = mapping(i+1, j);
+				List[temp1].push_back(temp2);
+				List[temp2].push_back(temp1);
+			}
+
+		}
+	}
+
+	//Check horizontal
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y ; j++)
+		{
+			if (this->map[i][j] == WALL) continue;
+
+			if (map[i][j+1] == ROAD || map[i][j+1] == START || map[i][j+1] == META)
+			{
+				int temp1 = mapping(i, j);
+				int temp2 = mapping(i, j+1);
+				List[temp1].push_back(temp2);
+				List[temp2].push_back(temp1);
+			}
+		}
+	}
+
+}
+
+//y - j; x -i
+int Labirynth::calculate_cross_exits_y(int j, int i)
+{
+	int amount = 0;
+
+	if (i > size_y+1) return 0;
+	if (j > size_x) return 0;
+
+	//if (j - 1 >= 0)
+	//{
+	//	if (map[i][j-1] == ROAD || map[i][j-1] == START || map[i][j-1] == META)
+	//		amount++;
+	//}
+
+	//if (j + 1 <= size_y)
+	//{
+	//	if (map[i][j+1] == ROAD || map[i][j+1] == START || map[i][j+1] == META)
+	//		amount++;
+	//}
+
+	if (i - 1 >= 0)
+	{
+		if (map[i-1][j] == ROAD || map[i-1][j] == START || map[i-1][j] == META)
+			amount++;
+	}
+
+	if (i + 1 < size_x)
+	{
+		if (map[i+1][j] == ROAD || map[i+1][j] == START || map[i+1][j] == META)
+			amount++;
+	}
+
+	return amount;
+}
+
+//y - j; x -i
+int Labirynth::calculate_cross_exits_x(int j, int i)
+{
+	int amount = 0;
+
+		if (i > size_x) return 0;
+	if (j > size_y) return 0;
+
+	if (j - 1 >= 0)
+	{
+		if (map[i][j-1] == ROAD || map[i][j-1] == START || map[i][j-1] == META)
+			amount++;
+	}
+
+	if (j + 1 <= size_y)
+	{
+		if (map[i][j+1] == ROAD || map[i][j+1] == START || map[i][j+1] == META)
+			amount++;
+	}
+
+	//if (i - 1 >= 0)
+	//{
+	//	if (map[i - 1][j] == ROAD || map[i - 1][j] == START || map[i - 1][j] == META)
+	//		amount++;
+	//}
+
+	//if (i + 1 < size_x)
+	//{
+	//	if (map[i + 1][j] == ROAD || map[i + 1][j] == START || map[i + 1][j] == META)
+	//		amount++;
+	//}
+
+	return amount;
+}
+
+bool skip_point(vector<pair<int, int>> skipped_points, int i, int j)
+{
+	bool skip = false;
+	for (int k = 0; k != skipped_points.size(); k++)
+	{
+		if (skipped_points[k].first == i  && skipped_points[k].second == j)
+			skip = true;
+	}
+	return skip;
+}
+
+void Labirynth::MapToListWithWeights()
+{
+	bool skip = false;
+	vector<pair<int, int>> skipped_points;
+
+	//Check vertical
+	for (int j = 0; j != size_y; j++)//y
+	{
+		//skipped_points.clear();
+		for (int i = 0; i != size_x-1; i++)//x
+		{
+
+			if (this->map[i][j] == WALL) continue;
+			skip = false;
+			if (skip_point(skipped_points, j, i)) continue;
+
+
+			//Start:
+			if (map[i + 1][j] == ROAD || map[i + 1][j] == START || map[i + 1][j] == META)
+			{
+				//Connection weights
+				int crosses = calculate_cross_exits_y(j, i+1);
+				int distance = 1;
+				if (crosses == 2)
+				{
+					do
+					{
+						bool temp = calculate_cross_exits_x(j, i + distance);
+						if (crosses == 2 &&  (temp>= 1)) break;
+						//if (map[j + distance][i] == START || map[j + distance][i] == META) break;
+						skipped_points.push_back(pair<int, int>(j, i + distance));
+						distance++;
+						
+						crosses = calculate_cross_exits_y(j, i+distance);
+
+						
+					} while (crosses == 2);
+					skip = true;
+				}
+				cout << "Skipped Points veritcal:";
+				for (int i = 0; i != skipped_points.size(); i++)
+				{
+					cout << skipped_points[i].first << " " << skipped_points[i].second;
+				}
+
+				draw(mapping(i, j));
+				//add connection
+				int temp1 = mapping(i, j);
+				int temp2 = mapping(i +distance, j);
+				List[temp1].push_back(temp2);
+				List[temp2].push_back(temp1);
+
+				//if (skip) i += distance-1;
+			}
+
+		}
+	}
+
+	cout << "Skipped Points veritcal:";
+	for (int i = 0; i != skipped_points.size(); i++)
+	{
+		cout << skipped_points[i].first << " " << skipped_points[i].second;
+	}
+	skipped_points.clear();
+	
+	vector<pair<int, int>> skipped_points_horizontal;
+
+	//Check horizontal
+	for (int i = 0; i != size_x; i++)
+	{
+		//skipped_points_horizontal.clear();
+		for (int j = 0; j != size_y; j++)
+		{
+
+			if (this->map[i][j] == WALL) continue;
+			if (skip_point(skipped_points_horizontal, i, j)) continue;
+
+
+			if (map[i][j + 1] == ROAD || map[i][j + 1] == START || map[i][j + 1] == META)
+			{
+				skip = false;
+
+				//Connection weights
+				int crosses = calculate_cross_exits_x(j+1, i);
+				int distance = 1;
+				if (crosses == 2)
+				{
+					do
+					{
+						bool temp = calculate_cross_exits_y(j + distance, i);
+						if (crosses == 2 &&  (temp>= 1)) break;
+						if (map[j ][i + distance] == START || map[j ][i + distance] == META) break;
+						skipped_points_horizontal.push_back(pair<int, int>(i , j + distance));
+						distance++;
+						
+						crosses = calculate_cross_exits_x(j + distance, i);
+						
+					} while (crosses == 2);
+
+					skip = true;
+				}
+
+				int temp1 = mapping(i, j);
+				int temp2 = mapping(i, j + distance);
+				List[temp1].push_back(temp2);
+				List[temp2].push_back(temp1);
+
+				//if (skip) j += distance;
+			}
+		}
+	}
+
+	cout << "Skipped Points horizontal:";
+	for (int i = 0; i != skipped_points_horizontal.size(); i++)
+	{
+		cout << skipped_points_horizontal[i].first << " " << skipped_points_horizontal[i].second;
+	}
+
+}
+
+//Display Neighbourhood list
+void Labirynth::Display_list()
+{
+	for (int i = 1; i != List.size(); i++)
+	{
+
+		cout << endl;
+		cout << i << " -> ";
+
+		//if (List[i].size() == 0) break;
+		for (int j = 0; j != List[i].size(); j++)
+		{
+			cout << List[i][j] << ", ";
+		}
+
+		cout << endl;
+	}
+}
+
+//Find start node Id
+int Labirynth::get_start()
+{
+	int start_id = 1;
+
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				if (map[i][j] == 'S') return start_id;
+				start_id++;
+			}
+		}
+	}
+	return start_id;
+}
+
+//Find meta node Id
+int Labirynth::get_meta()
+{
+	int meta_id = 1;
+
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				if (map[i][j] == 'M') return meta_id;
+				meta_id++;
+			}
+		}
+	}
+	return meta_id;
+}
+
+//Dalculate distance between two given nodes
+float Labirynth::calculate_distance(int node1_id, int node2_id, DistanceCalculationMethod DMethod)
+{
+	int node1_x, node1_y, node2_x, node2_y;
+	unMap(node1_id, node1_x, node1_y);
+	unMap(node2_id, node2_x, node2_y);
+
+	switch(DMethod)
+	{
+	//Sum of x distance and y distance
+	case DistanceCalculationMethod::Manhatan:
+		return ((float)(abs((node1_x - node2_x))) + (float)(abs((node1_y - node2_y))));
+	break;
+
+	case DistanceCalculationMethod::Euclidean:
+		return -1; //TO DO: implement calculation 
+		break;
+
+	case DistanceCalculationMethod::Diagonal:
+		return -1; //TO DO: implement calculation 
+		break;
+
+	default:
+		return ((float)(abs((node1_x - node2_x))) + (float)(abs((node1_y - node2_y))));
+		break;
+	}
+	
+}
+
+//Set all map nodes to '0'
+void Labirynth::eraseMap()
+{
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			this->map[i][j] = '0';
+		}
+	}
+}
+
+int Labirynth::calculate_nodes_amounts()
+{
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				nodes_amount++;
+			}
+		}
+	}
+
+	return nodes_amount;
+}
+
+
+/*
+S0000
+01111
+01111
+00001
+0000M
+
+S0M00
+11111
+11111
+11111
+11111
+
+S1111
+01111
+M1111
+01111
+11111
+
+*/
