@@ -1,0 +1,500 @@
+#include <iostream>
+#include <vector>
+#include <queue>
+#include "Labirynth.h"
+
+#define debug
+
+using namespace std;
+
+enum DsiplayMetod
+{
+	Step,
+	Continues
+};
+
+class node
+{
+public:
+	node(int id)
+	{
+		this->id = id;
+	}
+
+	node(int id, int distance, string name)
+	{
+		this->id = id;
+	}
+
+	int id = -1;
+	int distance = -1;
+	string name;
+	bool visited = false;
+};
+
+bool DFS(int current_node, int end , vector<vector<int>> NeighborhoodList, vector<node> &nodes, Labirynth map, vector<int>& finded_path, int &needed_steps);
+int BFS(int start, int end, vector<vector<int>> NeighborhoodList, vector<node>& nodes, Labirynth map, vector<int>& finded_path, int& needed_steps);
+int AStar(int start, int end, vector<vector<int>> NeighborhoodList, vector<node>& nodes, Labirynth map, vector<int>& finded_path, int& needed_steps);
+
+void Display_step(int node_id, Labirynth map, DsiplayMetod disp);
+void Display_Q(queue<int> Q);
+void DFS_result(vector<int> finded_path, int needed_steps, Labirynth map);
+void BFS_result(vector<int> finded_path, int needed_steps, Labirynth map);
+void AStar_result(vector<int> finded_path, int needed_steps, Labirynth map);
+
+char** construct_new_map(int size_x, int size_y)
+{
+	char element;
+	char** map = new char* [size_x];
+
+	//construct 2D array
+	for (int i = 0; i != size_x; i++)
+	{
+		map[i] = new char[size_y];
+	}
+	
+	//fill array
+	for (int i = 0; i != size_x; i++)
+	{
+		for (int j = 0; j != size_y; j++)
+		{
+			cout << "podaj element na pozycji [" << i << "] [" << j << "] : ";
+			cin >> element;
+			map[i][j] = element;
+		}
+	}
+
+	return map;
+}
+
+int main_menu()
+{
+	int size_x, size_y;
+	vector<int> finded_path;
+	int needed_steps = 0;;
+
+	cout << "podaj szerokosc labiryntu: ";
+	cin >> size_y;
+	cout << "podaj wysokosc labiryntu: ";
+	cin >> size_x;
+
+	char** new_map = construct_new_map(size_x, size_y);
+	Labirynth map1(size_x, size_y, new_map);
+
+	map1.draw_raw_map();
+	//map1.MapToList();
+	map1.MapToListWithWeights();
+	map1.Display_list();
+
+	vector<node> nodes;
+	for (int i = 1; i != map1.List.size() + 1; i++)
+	{
+		//cout << "Node: " << i;
+		nodes.push_back(node(i));
+		nodes[i-1].visited = false;
+	}
+
+	//int temp = map1.calculate_distance(1, 5, DistanceCalculationMethod::Manhatan);
+
+	cout << endl << endl << "BFS:" << endl;
+
+	cin.get();
+	cout << endl << "Select alogoritm: " << endl << endl << "[1] DFS" << endl << "[2] BFS" << endl << "[3] A*" << endl;
+	int select;
+	cin >> select;
+
+	if (select == 1)
+	{
+		DFS(map1.get_start(), map1.get_meta(), map1.List, nodes, map1, finded_path, needed_steps);
+		DFS_result(finded_path, needed_steps, map1);
+	}
+	
+	if (select == 2)
+	{
+		BFS(map1.get_start(), map1.get_meta(), map1.List, nodes, map1, finded_path, needed_steps);
+		BFS_result(finded_path, needed_steps, map1);
+	}
+	
+	if (select == 3)
+	{
+		AStar(map1.get_start(), map1.get_meta(), map1.List, nodes, map1, finded_path, needed_steps);
+		AStar_result(finded_path, needed_steps, map1);
+
+	}
+
+	if (select == 0) return 0;
+
+	return 1;
+}
+
+int main()
+{
+	int end;
+	while (1)
+	{
+		end = main_menu();
+		if (end == 0) break;
+	}
+	
+	return 0;
+}
+
+bool DFS(int current_node, int end, vector<vector<int>> NeighborhoodList, vector<node> &nodes, Labirynth map, vector<int> &finded_path, int& needed_steps)
+{
+	nodes[current_node].visited = true;
+	Display_step(current_node, map, DsiplayMetod::Step);
+
+	int next = -1;
+	bool finded = false;
+
+	for (int i = 0; i != NeighborhoodList[current_node].size(); i++)
+	{
+		
+		next = NeighborhoodList[current_node][i];
+
+		if (next == end)
+		{
+			Display_step(next, map, DsiplayMetod::Step);
+			finded_path.push_back(next);
+			finded_path.push_back(current_node);
+			return true;
+		}
+		
+		if (nodes[next].visited == false)
+		{
+			nodes[next].visited = true;
+			needed_steps++;
+			finded = DFS(next, end, NeighborhoodList, nodes, map, finded_path, needed_steps);
+			Display_step(current_node, map, DsiplayMetod::Step);
+			
+			if (finded == true)
+			{
+				finded_path.push_back(current_node);
+			}
+
+		}
+
+	}
+	return finded;
+
+}
+
+int BFS(int current_node, int end, vector<vector<int>> NeighborhoodList, vector<node>& nodes, Labirynth map, vector<int>& finded_path, int& needed_steps)
+{
+	int start = current_node;
+	queue<int> Q;
+	int* path = new int[map.nodes_amount];
+	int previous = -1;
+	vector<int> prev;
+	for (int i = 0; i != map.nodes_amount+1; i++)
+	{
+		prev.push_back(NULL);
+	}
+
+	//init
+	Display_step(current_node, map, DsiplayMetod::Step);
+	Q.push(nodes[current_node-1].id);
+	int next = Q.front();
+	
+	nodes[next].visited = true;
+
+	for (int j = 0; j != NeighborhoodList.size()-1; j++)
+	{
+		needed_steps++;
+		Display_step(next, map, DsiplayMetod::Step);
+		//finded_path.push_back(next);
+		
+		if (next == end) break;
+		
+		Q.pop();
+		for (int i = 0; i != NeighborhoodList[next].size(); i++)
+		{
+			int temp = NeighborhoodList[next][i];
+			if (nodes[temp].visited == false)
+			{
+				nodes[NeighborhoodList[next][i]].visited = true;
+				prev[temp] = next;
+				Q.push(NeighborhoodList[next][i]);
+				
+			}
+			
+		}
+		Display_Q(Q);
+		if (next == end) break;
+		
+		if (Q.empty() == true) return -1;
+		next = Q.front();
+		
+	}
+
+	//Display parent list
+	for (int i = 0; i != prev.size(); i++)
+	{
+		cout << i << "V->" << prev[i] << endl;
+	}cout << endl;
+
+	//Find shortest path
+	while (prev[end]!=NULL)
+	{
+		Display_step(end, map, DsiplayMetod::Step);
+		finded_path.push_back(end);
+		end = prev[end];
+	}
+	//Add 1st node
+	finded_path.push_back(start);
+
+	Display_step(end, map, DsiplayMetod::Step);
+
+	return 0;
+}
+
+int AStar(int current_node, int end, vector<vector<int>> NeighborhoodList, vector<node>& nodes, Labirynth map, vector<int>& finded_path, int& needed_steps)
+{
+	int start = current_node;
+	queue<int> Q;
+	int* path = new int[map.nodes_amount];
+	int previous = -1;
+	vector<int> prev;
+	for (int i = 0; i != map.nodes_amount + 1; i++)
+	{
+		prev.push_back(NULL);
+	}
+
+	//init
+	Display_step(current_node, map, DsiplayMetod::Step);
+	Q.push(nodes[current_node - 1].id);
+	int next = Q.front();
+
+	nodes[next].visited = true;
+
+
+	for (int j = 0; j != NeighborhoodList.size() - 1; j++)
+	{
+		needed_steps++;
+		Display_step(next, map, DsiplayMetod::Step);
+		//finded_path.push_back(next);
+
+		if (next == end) break;
+
+		Q.pop();
+		for (int i = 0; i != NeighborhoodList[next].size(); i++)
+		{
+			int temp = NeighborhoodList[next][i];
+			if (nodes[temp].visited == false)
+			{
+				nodes[NeighborhoodList[next][i]].visited = true;
+				prev[temp] = next;
+				Q.push(NeighborhoodList[next][i]);
+
+			}
+
+		}
+		Display_Q(Q);
+		if (next == end) break;
+
+		if (Q.empty() == true) return -1;
+
+		//TO DO: set Heuristics priority
+		vector<pair<int, float>> heurestics;
+		while(!Q.empty())
+		{
+			float H = map.calculate_distance(Q.front(), end, DistanceCalculationMethod::Manhatan);
+			heurestics.push_back(pair<int, float>(Q.front(), H));
+			Q.pop();
+		}
+
+		//TO DO: sort Queue:
+		pair<int, float> min = heurestics[0];
+		bool sorted = false;
+		do
+		{
+			sorted = false;
+			for (int i = 0; i != heurestics.size(); i++)
+			{
+				if (heurestics[i].second < min.second)
+				{
+					min = heurestics[i];
+					heurestics[i] = heurestics[heurestics.size()-1];
+					heurestics[heurestics.size() - 1] = min;
+
+					sorted = true;
+				}
+			}
+		} while (sorted);
+
+		
+		//TO DO: refill Queue:
+		for (int i = heurestics.size()-1; i != -1; i--)
+		{
+			Q.push(heurestics[i].first);
+			cout << "H: " << heurestics[i].second << endl;
+		}
+		Display_Q(Q);
+		next = Q.front();
+
+	}
+
+	//Display parent list
+	for (int i = 0; i != prev.size(); i++)
+	{
+		cout << i << "V->" << prev[i] << endl;
+	}cout << endl;
+
+
+	//Find shortest path
+	while (prev[end] != NULL)
+	{
+		Display_step(end, map, DsiplayMetod::Step);
+		finded_path.push_back(end);
+		end = prev[end];
+	}
+	//Add 1st node:
+	finded_path.push_back(start);
+
+	Display_step(end, map, DsiplayMetod::Step);
+
+	return 0;
+}
+
+void Display_step(int node_id, Labirynth map, DsiplayMetod disp)
+{
+	switch (disp)
+	{
+	case Step:
+		system("cls");
+		cout << endl << "V->" << node_id << endl;
+		map.draw(node_id);
+		cin.get();
+	break;
+
+	case Continues:
+		map.draw(node_id);
+	break;
+	}
+}
+
+void Display_Q(queue<int> Q)
+{
+	int temp;
+	cout << "Queue: " << endl;
+	while(!Q.empty())
+	{
+		temp = Q.front();
+		Q.pop();
+		cout << temp << ", ";
+	}
+	cout << endl << endl;
+}
+
+void DFS_result(vector<int> finded_path, int needed_steps, Labirynth map)
+{
+	cout << "DFS: " << endl << endl;
+	cout << "Steps needed to find path: " << needed_steps << endl;
+	cout << "Finded path size: " << finded_path.size() << endl;
+	cout << "Finded Path: " << endl;
+	for (int i = finded_path.size() - 1; i != -1; i--)
+	{
+		cout << "V->" << finded_path[i];
+	}
+	cout << endl << endl;
+
+	map.draw_finded_path(finded_path);
+}
+
+void BFS_result(vector<int> finded_path, int needed_steps , Labirynth map)
+{
+	cout << "BFS: " << endl << endl;
+	cout << "Steps needed to find path: " << needed_steps << endl;
+	cout << "Finded path size: " << finded_path.size() << endl;
+	cout << "Finded Path: " << endl;
+	for (int i = finded_path.size() - 1; i != -1; i--)
+	{
+		cout << "V->" << finded_path[i];
+	}
+	cout << endl << endl;
+
+	map.draw_finded_path(finded_path);
+}
+
+void AStar_result(vector<int> finded_path, int needed_steps, Labirynth map)
+{
+	cout << "Astar: " << endl << endl;
+	cout << "Steps needed to find path: " << needed_steps << endl;
+	cout << "Finded path size: " << finded_path.size() << endl;
+	cout << "Finded Path: " << endl;
+	for (int i = finded_path.size() - 1; i != -1; i--)
+	{
+		cout << "V->" << finded_path[i];
+	}
+	cout << endl << endl;
+
+	map.draw_finded_path(finded_path);
+}
+
+/*****************************
+Przykladowe dane wejsciowe:
+
+map1:
+S 1 1
+0 0 0
+1 1 M
+
+map2:
+S101
+0000
+1101
+M001
+
+map3:
+10000
+S0011
+1011M
+00010
+01000
+
+map4 10x5
+1010101010
+0000000111
+S100110001
+0000000000
+101010101M
+
+map5 10x10
+0000000000
+0000000000
+0000000000
+0000000000
+0000S00000
+0000000000
+0000000000
+0000000000
+000000000M
+0000000000
+
+map6 10x10
+0000000000
+0010001000
+0111011101
+0100000100
+0100S00100
+0100000100
+0111011100
+0000001000
+000000100M
+0000001000
+
+map7 12x12
+S11100000111
+011101110111
+000001M10000
+110101000101
+000101010101
+101100010000
+101110110110
+100000110110
+101110110110
+101110000000
+101110111111
+100000111111
+
+****************************/
