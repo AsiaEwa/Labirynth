@@ -1,0 +1,441 @@
+#include "Labirynth.h"
+
+#define WALL '1'
+#define ROAD '0'
+#define START 'S'
+#define META 'M'
+
+template<class LabType>
+Labirynth<LabType>::Labirynth()
+{
+	size_x = 0;
+	size_y = 0;
+}
+
+template<class LabType>
+Labirynth<LabType>::Labirynth(long int size_x,long int size_y)
+{
+	this->size_x = size_x;
+	this->size_y = size_y;
+
+	map = new LabType * [size_x];
+	if (!map) cout << "didnt allocated";
+
+	for (long int i = 0; i != size_x; i++)
+	{
+		map[i] = new LabType[size_y];
+	}
+
+	nodes_amount = calculate_nodes_amounts();
+	for (long int i = 0; i != nodes_amount + 1; i++)
+	{
+		AdjencentyList.push_back(vector<long int>());
+		nodes.push_back(node(i));
+	}
+
+
+	map_to_list();
+}
+
+template<class LabType>
+Labirynth<LabType>::Labirynth(long int size_x,long int size_y, LabType** newMap)
+{
+	this->size_x = size_x;
+	this->size_y = size_y;
+
+	this->map = newMap;
+	nodes_amount = calculate_nodes_amounts();
+	for (long int i = 0; i != nodes_amount + 1; i++)
+	{
+		AdjencentyList.push_back(vector<long int>());
+		nodes.push_back(node(i));
+	}
+
+	map_to_list();
+}
+
+template<class LabType>
+Labirynth<LabType>::~Labirynth()
+{
+	//delete this->map;
+}
+
+template<class LabType>
+LabType** Labirynth<LabType>::construct_new_map(long int size_x,long int size_y)
+{
+	LabType element;
+	LabType** map = new char* [size_x];
+
+	//construct 2D array
+	for (long int i = 0; i != size_x; i++)
+	{
+		map[i] = new LabType[size_y];
+	}
+
+	//fill array
+	for (long int i = 0; i != size_x; i++)
+	{
+		for (long int j = 0; j != size_y; j++)
+		{
+			cout << "podaj element na pozycji [" << i << "] [" << j << "] : ";
+			cin >> element;
+			map[i][j] = element;
+		}
+	}
+
+	return map;
+}
+
+template<class LabType>
+void Labirynth<LabType>::draw_epty_map()
+{
+
+}
+
+template<class LabType>
+void Labirynth<LabType>::map_to_list()
+{
+	vector<pair<long int,long int>> skipped_points;
+
+	//Check vertical
+	for (long int j = 0; j != size_y; j++)//y
+	{
+		//skipped_points.clear();
+		for (long int i = 0; i != size_x - 1; i++)//x
+		{
+
+			if (this->map[i][j] == WALL) continue;
+			if (skip_point(skipped_points, j, i)) continue;
+
+			//Start:
+			if (map[i + 1][j] == ROAD || map[i + 1][j] == START || map[i + 1][j] == META)
+			{
+				//Connection weights
+				long int crosses = calculate_cross_exits_y(j, i + 1);
+				long int distance = 1;
+				if (crosses == 2)
+				{
+					do
+					{
+						long int temp = calculate_cross_exits_x(j, i + distance);
+						if (crosses == 2 && (temp >= 1)) break;
+						skipped_points.push_back(pair<long int,long int>(j, i + distance));
+						distance++;
+
+						crosses = calculate_cross_exits_y(j, i + distance);
+
+
+					} while (crosses == 2);
+
+				}
+
+				//draw(mapping(i, j));
+				//add connection
+				long int temp1 = mapping(i, j);
+				long int temp2 = mapping(i + distance, j);
+				AdjencentyList[temp1].push_back(temp2);
+				AdjencentyList[temp2].push_back(temp1);
+
+			}
+
+		}
+	}
+
+	skipped_points.clear();
+
+	vector<pair<long int,long int>> skipped_points_horizontal;
+
+	//Check horizontal
+	for (long int i = 0; i != size_x; i++)
+	{
+		//skipped_points_horizontal.clear();
+		for (long int j = 0; j != size_y; j++)
+		{
+
+			if (this->map[i][j] == WALL) continue;
+			if (skip_point(skipped_points_horizontal, i, j)) continue;
+
+
+			if (map[i][j + 1] == ROAD || map[i][j + 1] == START || map[i][j + 1] == META)
+			{
+
+				//Connection weights
+				long int crosses = calculate_cross_exits_x(j + 1, i);
+				long int distance = 1;
+				if (crosses == 2)
+				{
+					do
+					{
+						long int temp = calculate_cross_exits_y(j + distance, i);
+						if (crosses == 2 && (temp >= 1)) break;
+						if (map[j][i + distance] == START || map[j][i + distance] == META) break;
+						skipped_points_horizontal.push_back(pair<long int, long int>(i, j + distance));
+						distance++;
+
+						crosses = calculate_cross_exits_x(j + distance, i);
+
+					} while (crosses == 2);
+
+				}
+
+				long int temp1 = mapping(i, j);
+				long int temp2 = mapping(i, j + distance);
+				AdjencentyList[temp1].push_back(temp2);
+				AdjencentyList[temp2].push_back(temp1);
+			}
+		}
+	}
+}
+
+template<class LabType>
+void Labirynth<LabType>::write_adjList()
+{
+	for (long int i = 0; i != AdjencentyList.size(); i++)
+	{
+		for (long int j = 0; j != AdjencentyList[i].size(); j++)
+		{
+			long int temp = (long int)AdjencentyList[i][j];
+			cout << temp << " ";
+		}
+		cout << endl;
+	}
+	cout << endl;
+}
+
+template<class LabType>
+long int Labirynth<LabType>::calculate_cross_exits_y(long int j,long int i)
+{
+	long int amount = 0;
+
+	if (i > size_y + 1) return 0;
+	if (j > size_x) return 0;
+
+	if (i - 1 >= 0)
+	{
+		if (map[i - 1][j] == ROAD || map[i - 1][j] == START || map[i - 1][j] == META)
+			amount++;
+	}
+
+	if (i + 1 < size_x)
+	{
+		if (map[i + 1][j] == ROAD || map[i + 1][j] == START || map[i + 1][j] == META)
+			amount++;
+	}
+
+	return amount;
+}
+
+//y - j; x -i
+template<class LabType>
+long int Labirynth<LabType>::calculate_cross_exits_x(long int j,long int i)
+{
+	long int amount = 0;
+
+	if (i > size_x) return 0;
+	if (j > size_y) return 0;
+
+	if (j - 1 >= 0)
+	{
+		if (map[i][j - 1] == ROAD || map[i][j - 1] == START || map[i][j - 1] == META)
+			amount++;
+	}
+
+	if (j + 1 <= size_y)
+	{
+		if (map[i][j + 1] == ROAD || map[i][j + 1] == START || map[i][j + 1] == META)
+			amount++;
+	}
+
+
+	return amount;
+}
+
+//Map array index to array slot number
+template<class LabType>
+long int Labirynth<LabType>::mapping(long int col,long int row)
+{
+	long int val = 1;
+
+	for (long int i = 0; i <= size_x; i++)
+	{
+		for (long int j = 0; j <= size_y; j++)
+		{
+			if (i == col && j == row)
+			{
+
+				return val;
+			}
+			if (map[i][j] == ROAD || map[i][j] == START || map[i][j] == META)
+			{
+				val++;
+			}
+		}
+	}
+
+	return val;
+}
+
+//Find row and column of given node
+template<class LabType>
+void Labirynth<LabType>::unMap(long int node_id,long int& col, long int& row)
+{
+	long int val = 0;
+
+	for (long int i = 0; i <= size_x - 1; i++)
+	{
+		for (long int j = 0; j <= size_y - 1; j++)
+		{
+			if (map[i][j] == ROAD || map[i][j] == START || map[i][j] == META)
+			{
+				val++;
+			}
+
+			if (val == node_id)
+			{
+				col = i;
+				row = j;
+				return;
+			}
+
+		}
+	}
+}
+
+template<class LabType>
+bool Labirynth<LabType>::skip_point(vector<pair<long int,long int>> skipped_points,long int i,long int j)
+{
+	bool skip = false;
+	for (long int k = 0; k != skipped_points.size(); k++)
+	{
+		if (skipped_points[k].first == i && skipped_points[k].second == j)
+			skip = true;
+	}
+	return skip;
+}
+
+template<class LabType>
+long int Labirynth<LabType>::calculate_nodes_amounts()
+{
+	for (long int i = 0; i != size_x; i++)
+	{
+		for (long int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				nodes_amount++;
+			}
+		}
+	}
+
+	return nodes_amount;
+}
+
+//Find start node Id
+template<class LabType>
+long int Labirynth<LabType>::get_start()
+{
+	long int start_id = 1;
+
+	for (long int i = 0; i != size_x; i++)
+	{
+		for (long int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				if (map[i][j] == 'S') return start_id;
+				start_id++;
+			}
+		}
+	}
+	return start_id;
+}
+
+//Find meta node Id
+template<class LabType>
+long int Labirynth<LabType>::get_meta()
+{
+	long int meta_id = 1;
+
+	for (long int i = 0; i != size_x; i++)
+	{
+		for (long int j = 0; j != size_y; j++)
+		{
+			if (map[i][j] == '0' || map[i][j] == 'S' || map[i][j] == 'M')
+			{
+				if (map[i][j] == 'M') return meta_id;
+				meta_id++;
+			}
+		}
+	}
+	return meta_id;
+}
+
+
+
+template<class LabType>
+float Labirynth<LabType>::calculate_distance(long int node1_id, long int node2_id, DistanceCalculationMethod DMethod)
+{
+	long int node1_x, node1_y, node2_x, node2_y;
+	unMap(node1_id, node1_x, node1_y);
+	unMap(node2_id, node2_x, node2_y);
+
+	switch (DMethod)
+	{
+		//Sum of x distance and y distance
+	case DistanceCalculationMethod::Manhatan:
+		return ((float)(abs((node1_x - node2_x))) + (float)(abs((node1_y - node2_y))));
+		break;
+
+	case DistanceCalculationMethod::Euclidean:
+		return -1; //TO DO: implement calculation 
+		break;
+
+	case DistanceCalculationMethod::Diagonal:
+		return -1; //TO DO: implement calculation 
+		break;
+
+	default:
+		return ((float)(abs((node1_x - node2_x))) + (float)(abs((node1_y - node2_y))));
+		break;
+	}
+}
+
+template<class LabType>
+void Labirynth<LabType>::show_path(Path path)
+{
+	//system("cls");
+	for (long int i = 0; i != size_x; i++)
+	{
+		for (long int j = 0; j != size_y; j++)
+		{
+			bool temp = false;
+			for (long int k = 0; k != path.steps.size(); k++)
+			{
+				long int x = -1, y = -1;
+				unMap(path.steps[k], x, y);
+				if (x == i && y == j)
+				{
+					cout << '@';
+					temp = true;
+				}
+			}
+			if (temp) continue;
+
+			if (map[i][j] == ROAD)
+				cout << " ";
+
+			if (map[i][j] == WALL)
+				cout << "1";
+			//cout << (char)254;
+
+			if (map[i][j] == START)
+				cout << START;
+
+			if (map[i][j] == META)
+				cout << META;
+		}
+
+		cout << endl;
+	}
+	cout << endl;
+}
